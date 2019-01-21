@@ -1,0 +1,38 @@
+#!/bin/bash
+# https://github.com/akopytov/sysbench
+
+_SIZE="${1:-10G}"
+LOG_PATH=$HOME/bench
+PREFIX=sysbench_fileio_${_SIZE}
+SIZE="--file-total-size=${_SIZE}"
+
+# https://extrememanual.net/26680
+test_mode=("seqwr" "seqrewr" "seqrd" "rndrd" "rndwr" "rndrw")
+
+mkdir $LOG_PATH;
+
+run_test() {
+    TEST=${PREFIX}_$1
+    TEST_DIR=${TEST}_${RANDOM}
+	mkdir $TEST_DIR;
+	cd $TEST_DIR;
+
+    echo "$TEST test START";
+	sysbench fileio $SIZE prepare | grep written;
+    
+    _TS=$(date +%s%N | cut -b1-13)
+    LOG=${LOG_PATH}/${TEST}_$_TS
+	sysbench fileio --time=60 $SIZE --file-test-mode=$1 --max-requests=0 run > ${LOG};
+    touch ${LOG};
+
+    sysbench fileio $SIZE cleanup;
+    cd ..;
+    rm -rf $TEST_DIR;
+	sync;
+    sleep 2;
+}
+
+for i in "${test_mode[@]}"
+do
+   run_test $i
+done
